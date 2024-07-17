@@ -1,11 +1,13 @@
 import { Button } from '@/components/buttons';
 import { Calendar } from '@/components/calendar';
+import { GuestEmail } from '@/components/email';
 import { Input } from '@/components/input';
 import { Modal } from '@/components/modal';
 import { colors } from '@/styles/colors';
 import { calendarUtils, DatesSelected } from '@/utils/calendarUtils';
+import { validateInput } from '@/utils/validateInput';
 import dayjs from 'dayjs';
-import { ArrowRight, Calendar as IconCalendar, MapPin, Settings2, UserRoundPlus } from "lucide-react-native";
+import { ArrowRight, AtSign, Calendar as IconCalendar, MapPin, Settings2, UserRoundPlus } from "lucide-react-native";
 import { useState } from 'react';
 import { Alert, Image, Keyboard, Text, View } from 'react-native';
 import { DateData } from 'react-native-calendars';
@@ -26,6 +28,8 @@ export default function Index() {
   const [showModal, setShowModal] = useState(MODAL.NONE);
   const [selectedDates, setSelectedDates] = useState({} as DatesSelected);
   const [destination, setDestination] = useState('');
+  const [emailToInvite, setEmailToInvite] = useState('');
+  const [emailsToInvite, setEmailsToInvite] = useState<string[]>([]);
 
   function handleNextStepForm() {
     if (destination.trim().length === 0 || !selectedDates.startsAt || !selectedDates.endsAt) {
@@ -49,6 +53,25 @@ export default function Index() {
     });
 
     setSelectedDates(dates);
+  }
+
+  function handleRemoveEmail(emailToRemove: string) {
+    setEmailsToInvite(prevState => prevState.filter(email => email !== emailToRemove));
+  }
+
+  function handleAddEmail() {
+    if (!validateInput.email(emailToInvite)) {
+      return Alert.alert('Convidado', 'E-mail inválido!');
+    }
+
+    const emailAlreadyExists = emailsToInvite.find(email => email === emailToInvite);
+
+    if (emailAlreadyExists) {
+      return Alert.alert('Convidado', 'E-mail já foi adicionado!');
+    }
+
+    setEmailsToInvite(prevState => [...prevState, emailToInvite]);
+    setEmailToInvite('');
   }
 
   return (
@@ -96,7 +119,16 @@ export default function Index() {
 
             <Input>
               <UserRoundPlus color={colors.zinc[400]} size={20} />
-              <Input.Field placeholder="Quem estará na viagem?" />
+              <Input.Field
+                placeholder="Quem estará na viagem?"
+                autoCorrect={false}
+                value={emailsToInvite.length > 0 ? `${emailsToInvite.length} pessoa(s) convidada(s)` : ''}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowModal(MODAL.GUESTS);
+                }}
+                showSoftInputOnFocus={false}
+              />
             </Input>
           </>
         )}
@@ -128,6 +160,43 @@ export default function Index() {
 
           <Button onPress={() => setShowModal(MODAL.NONE)}>
             <Button.Title>Confirmar</Button.Title>
+          </Button>
+        </View>
+      </Modal>
+
+      <Modal
+        title="Selecionar convidados"
+        subtitle="Os convidados irão receber e-mails para confirmar a participação na viagem."
+        visible={showModal === MODAL.GUESTS}
+        onClose={() => setShowModal(MODAL.NONE)}
+      >
+        <View className="my-2 flex-wrap gap-2 border-b border-zinc-800 py-5 items-start">
+          {emailsToInvite.length > 0 ? (
+            emailsToInvite.map(email => (
+              <GuestEmail
+                key={email}
+                email={email}
+                onRemove={() => handleRemoveEmail(email)}
+              />
+            ))
+          ) : (
+            <Text className="text-zinc-600 text-base font-regular">Nenhum e-mail adicionado.</Text>
+          )}
+        </View>
+
+        <View className="gap-4 mt-4">
+          <Input variant="secondary">
+            <AtSign color={colors.zinc[400]} size={20} />
+            <Input.Field
+              placeholder="Digite o e-mail do convidado"
+              keyboardType="email-address"
+              onChangeText={text => setEmailToInvite(text.toLowerCase())}
+              value={emailToInvite}
+            />
+          </Input>
+
+          <Button onPress={handleAddEmail}>
+            <Button.Title>Convidar</Button.Title>
           </Button>
         </View>
       </Modal>
