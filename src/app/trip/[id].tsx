@@ -11,7 +11,7 @@ import { TouchableOpacity, View } from "react-native";
 import { Activities } from "./activities";
 import { Details } from "./details";
 
-type TripData = TripDetails & {
+export type TripData = TripDetails & {
   when: string;
 }
 
@@ -68,7 +68,11 @@ export default function Trip() {
         </TouchableOpacity>
       </Input>
 
-      {option === 'activity' ? <Activities /> : <Details />}
+      {option === 'activity' ? (
+        <Activities tripDetails={tripDetails} />
+      ) : (
+        <Details tripId={tripDetails.id} />
+      )}
 
       <View className="w-full absolute -bottom-1 self-center justify-end pb-5 z-10 bg-zinc-950">
         <View className="w-full flex-row bg-zinc-900 p-4 rounded-lg border border-zinc-800 gap-2">
