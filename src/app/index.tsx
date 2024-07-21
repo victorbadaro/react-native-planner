@@ -2,6 +2,7 @@ import { Button } from '@/components/buttons';
 import { Calendar } from '@/components/calendar';
 import { GuestEmail } from '@/components/email';
 import { Input } from '@/components/input';
+import { Loading } from '@/components/loading';
 import { Modal } from '@/components/modal';
 import { tripServer } from '@/server/trip-server';
 import { tripStorage } from '@/storage/trip';
@@ -11,7 +12,7 @@ import { validateInput } from '@/utils/validateInput';
 import dayjs from 'dayjs';
 import { router } from 'expo-router';
 import { ArrowRight, AtSign, Calendar as IconCalendar, MapPin, Settings2, UserRoundPlus } from "lucide-react-native";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Image, Keyboard, Text, View } from 'react-native';
 import { DateData } from 'react-native-calendars';
 
@@ -34,6 +35,7 @@ export default function Index() {
   const [emailToInvite, setEmailToInvite] = useState('');
   const [emailsToInvite, setEmailsToInvite] = useState<string[]>([]);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
+  const [isGettingTrip, setIsGettingTrip] = useState(true);
 
   function handleNextStepForm() {
     if (destination.trim().length === 0 || !selectedDates.startsAt || !selectedDates.endsAt) {
@@ -122,6 +124,33 @@ export default function Index() {
       console.log(error);
       setIsCreatingTrip(false);
     }
+  }
+
+  async function getTrip() {
+    try {
+      const tripId = await tripStorage.get();
+
+      if (!tripId) {
+        return setIsGettingTrip(false);
+      }
+
+      const trip = await tripServer.getById(tripId);
+
+      if (trip) {
+        return router.navigate(`/trip/${trip.id}`);
+      }
+    } catch (error) {
+      setIsGettingTrip(false);
+      console.log(error);
+    }
+  }
+
+  useEffect(() => {
+    getTrip();
+  }, []);
+
+  if (isGettingTrip) {
+    return <Loading />
   }
 
   return (
