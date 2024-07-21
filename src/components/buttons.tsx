@@ -11,13 +11,13 @@ interface ButtonProps extends TouchableOpacityProps {
 
 const ThemeContext = createContext<{ variant?: Variants }>({});
 
-function Button({ variant = 'primary', children, isLoading, ...rest }: ButtonProps) {
+function Button({ variant = 'primary', children, isLoading, className, ...rest }: ButtonProps) {
   return (
     <TouchableOpacity
-      className={clsx('w-full h-11 flex-row items-center justify-center rounded-lg gap-2', {
+      className={clsx('h-11 flex-row items-center justify-center rounded-lg gap-2', {
         'bg-lime-300': variant === 'primary',
         'bg-zinc-800': variant === 'secondary'
-      })}
+      }, className)}
       activeOpacity={0.7}
       disabled={isLoading}
       {...rest}
