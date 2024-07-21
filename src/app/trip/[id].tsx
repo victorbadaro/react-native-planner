@@ -1,13 +1,17 @@
 import { Button } from "@/components/buttons";
+import { Calendar } from "@/components/calendar";
 import { Input } from "@/components/input";
 import { Loading } from "@/components/loading";
+import { Modal } from "@/components/modal";
 import { TripDetails, tripServer } from "@/server/trip-server";
 import { colors } from "@/styles/colors";
+import { calendarUtils, DatesSelected } from "@/utils/calendarUtils";
 import dayjs from "dayjs";
 import { router, useLocalSearchParams } from 'expo-router';
-import { CalendarRange, Info, MapPin, Settings2 } from "lucide-react-native";
+import { CalendarRange, Calendar as IconCalendar, Info, MapPin, Settings2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { Alert, Keyboard, TouchableOpacity, View } from "react-native";
+import { DateData } from "react-native-calendars";
 import { Activities } from "./activities";
 import { Details } from "./details";
 
@@ -15,11 +19,21 @@ export type TripData = TripDetails & {
   when: string;
 }
 
+enum MODAL {
+  NONE = 0,
+  UPDATE_TRIP = 1,
+  CALENDAR = 2
+}
+
 export default function Trip() {
   const tripId = useLocalSearchParams<{ id: string }>().id;
   const [isLoadingTrip, setIsLoadingTrip] = useState(true);
   const [tripDetails, setTripDetails] = useState({} as TripData);
   const [option, setOption] = useState<'activity' | 'details'>('activity');
+  const [showModal, setShowModal] = useState(MODAL.NONE);
+  const [destination, setDestination] = useState('');
+  const [selectedDates, setSelectedDates] = useState({} as DatesSelected);
+  const [isUpdatingTrip, setIsUpdatingTrip] = useState(false);
 
   async function getTripDetails() {
     try {
@@ -38,6 +52,7 @@ export default function Trip() {
         ? `${trip.destination.slice(0, maxLengthDestination)}...`
         : trip.destination;
 
+      setDestination(trip.destination);
       setTripDetails({
         ...trip,
         when: `${destination} de ${starts_at} a ${ends_at} de ${month}.`
@@ -46,6 +61,51 @@ export default function Trip() {
       console.log(error);
     } finally {
       setIsLoadingTrip(false);
+    }
+  }
+
+  function handleSelectDate(selectedDay: DateData) {
+    const dates = calendarUtils.orderStartsAtAndEndsAt({
+      startsAt: selectedDates.startsAt,
+      endsAt: selectedDates.endsAt,
+      selectedDay
+    });
+
+    setSelectedDates(dates);
+  }
+
+  async function handleUpdateTrip() {
+    try {
+      if (!tripId) {
+        return;
+      }
+
+      if (!destination || !selectedDates.startsAt || !selectedDates.endsAt) {
+        return Alert.alert('Atualizar viagem', 'Lembre-se de, além de preencher o destino, selecinar datas de início e fim.');
+      }
+
+      setIsUpdatingTrip(true);
+
+      await tripServer.update({
+        id: tripId,
+        destination,
+        starts_at: dayjs(selectedDates.startsAt.dateString).toString(),
+        ends_at: dayjs(selectedDates.endsAt.dateString).toString()
+      });
+
+      Alert.alert('Atualizar viagem', 'Viagem atualizada com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setShowModal(MODAL.NONE);
+            getTripDetails();
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsUpdatingTrip(false);
     }
   }
 
@@ -63,7 +123,10 @@ export default function Trip() {
         <MapPin color={colors.zinc[400]} size={20} />
         <Input.Field value={tripDetails.when} readOnly />
 
-        <TouchableOpacity activeOpacity={0.7} className="w-9 h-9 bg-zinc-800 items-center justify-center rounded">
+        <TouchableOpacity
+          activeOpacity={0.7} className="w-9 h-9 bg-zinc-800 items-center justify-center rounded"
+          onPress={() => setShowModal(MODAL.UPDATE_TRIP)}
+        >
           <Settings2 color={colors.zinc[400]} size={20} />
         </TouchableOpacity>
       </Input>
@@ -87,6 +150,57 @@ export default function Trip() {
           </Button>
         </View>
       </View>
+
+      <Modal
+        title="Atualizar viagem"
+        subtitle="Somente quem criou a viagem pode editar."
+        visible={showModal === MODAL.UPDATE_TRIP}
+        onClose={() => setShowModal(MODAL.NONE)}
+      >
+        <View className="gap-2 my-4">
+          <Input variant="secondary">
+            <MapPin color={colors.zinc[400]} size={20} />
+            <Input.Field
+              placeholder="Para onde?"
+              onChangeText={setDestination}
+              value={destination}
+            />
+          </Input>
+
+          <Input variant="secondary">
+            <IconCalendar color={colors.zinc[400]} size={20} />
+            <Input.Field
+              placeholder="Quando?"
+              value={selectedDates.formatDatesInText}
+              onPressIn={() => setShowModal(MODAL.CALENDAR)}
+              onFocus={() => Keyboard.dismiss()}
+            />
+          </Input>
+
+          <Button onPress={handleUpdateTrip} isLoading={isUpdatingTrip}>
+            <Button.Title>Atualizar</Button.Title>
+          </Button>
+        </View>
+      </Modal>
+
+      <Modal
+        title="Selecionar datas"
+        subtitle="Selecione a data de ida e volta da viagem"
+        visible={showModal === MODAL.CALENDAR}
+        onClose={() => setShowModal(MODAL.NONE)}
+      >
+        <View className="gap-4 mt-4">
+          <Calendar
+            minDate={dayjs().toISOString()}
+            onDayPress={handleSelectDate}
+            markedDates={selectedDates.dates}
+          />
+
+          <Button onPress={() => setShowModal(MODAL.UPDATE_TRIP)}>
+            <Button.Title>Confirmar</Button.Title>
+          </Button>
+        </View>
+      </Modal>
     </View>
   )
 }
