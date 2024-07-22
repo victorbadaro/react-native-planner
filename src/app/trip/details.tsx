@@ -1,8 +1,10 @@
 import { Button } from "@/components/buttons";
 import { Input } from "@/components/input";
 import { Modal } from "@/components/modal";
+import { Participant, ParticipantProps } from "@/components/participant";
 import { TripLink, TripLinkProps } from "@/components/tripLink";
 import { linksServer } from "@/server/links-server";
+import { participantsServer } from "@/server/participants-server";
 import { colors } from "@/styles/colors";
 import { validateInput } from "@/utils/validateInput";
 import { Plus } from "lucide-react-native";
@@ -19,6 +21,7 @@ export function Details({ tripId }: DetailsProps) {
   const [linkURL, setLinkURL] = useState('');
   const [isCreatingLinkTrip, setIsCreatingLinkTrip] = useState(false);
   const [links, setLinks] = useState<TripLinkProps[]>([]);
+  const [participants, setParticipants] = useState<ParticipantProps[]>([]);
 
   function resetNewLinkFields() {
     setLinkTitle('');
@@ -46,6 +49,7 @@ export function Details({ tripId }: DetailsProps) {
 
       Alert.alert('Link', 'Link criado com sucesso!');
       resetNewLinkFields();
+      await getTripLinks();
     } catch (error) {
       console.log(error);
     } finally {
@@ -63,8 +67,19 @@ export function Details({ tripId }: DetailsProps) {
     }
   }
 
+  async function getTripParticipants() {
+    try {
+      const participants = await participantsServer.getByTripId(tripId);
+
+      setParticipants(participants);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   useEffect(() => {
     getTripLinks();
+    getTripParticipants();
   }, []);
 
   return (
@@ -87,6 +102,17 @@ export function Details({ tripId }: DetailsProps) {
           <Plus color={colors.zinc[200]} size={20} />
           <Button.Title>Cadastrar novo link</Button.Title>
         </Button>
+      </View>
+
+      <View className="flex-1 border-t border-zinc-800 mt-6">
+        <Text className="text-zinc-50 text-2xl font-semibold my-6">Convidados</Text>
+
+        <FlatList
+          data={participants}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <Participant data={item} />}
+          contentContainerClassName="gap-4 pb-44"
+        />
       </View>
 
       <Modal
